@@ -1,6 +1,6 @@
 (defpackage :cl-point-bot.connection
   (:use :cl :cl+ssl :usocket)
-  (:export :init-client))
+  (:export :https-request))
 
 (defparameter *point-host* "point.im")
 
@@ -21,12 +21,11 @@
 	 (return
 	   (if empty nil (get-output-stream-string s))))))
 
-(defun init-client (&key (unwrap-stream-p t))
+(defun https-request (endpoint)
   (let* ((socket
 	 (usocket:socket-connect
 	  *point-host* *port*
 	  :element-type '(unsigned-byte 8)))
-	(callback nil)
 	 (https
 	  (cl+ssl:make-ssl-client-stream
 	   (usocket:socket-stream socket)
@@ -34,9 +33,16 @@
 	     :external-format '(:iso-8859-1 :eol-style :lf))))
     (unwind-protect
 	 (progn
-	   (format https "GET /api/login HTTP/1.1~%Host: ~a~%~%" *point-host*)
+	   (format https "GET ~a HTTP/1.1~%Host: ~a~%~%" endpoint *point-host*)
 	   (force-output https)
-	   (loop :for line = (read-line-crlf https nil)
-	      :while line :do
-	      (format t "HTTPS> ~a~%" line)))
-      (close https))))
+	   (let ((prevline nil))
+	     (loop :for line = (read-line-crlf https nil)
+		:while line :do
+		(progn
+		  (setf prevline line)
+		  (format t "~a~%" line)
+;		  (map 'string #'(lambda (c) (print c)) line)
+		  (when (and (string= prevline line)
+			     (string= prevline #\0))
+		    (return)))))
+      (close https)))))
