@@ -21,7 +21,16 @@
 	 (return
 	   (if empty nil (get-output-stream-string s))))))
 
-(defun https-request (endpoint)
+(defun parse-headers (headers)
+  "Get list of http headers and extract all the useful info from there"
+  (print headers))
+
+(declaim (optimize (debug 3) (speed 0) (space 0)))
+
+(defun https-request (endpoint &key (header-parser 'parse-headers))
+  "Send a single https request to server and return list with results
+
+header-parser is function which is called when HTTP headers arrive"
   (let* ((socket
 	 (usocket:socket-connect
 	  *point-host* *port*
@@ -35,14 +44,15 @@
 	 (progn
 	   (format https "GET ~a HTTP/1.1~%Host: ~a~%~%" endpoint *point-host*)
 	   (force-output https)
-	   (let ((prevline nil))
+	   (let ((data '()))
 	     (loop :for line = (read-line-crlf https nil)
 		:while line :do
 		(progn
-		  (setf prevline line)
-		  (format t "~a~%" line)
-;		  (map 'string #'(lambda (c) (print c)) line)
-		  (when (and (string= prevline line)
-			     (string= prevline #\0))
-		    (return)))))
+		  (push line data)
+		  (when (string= (car data) "")
+		  (if (not (string= (cadr data) "0"))
+		      (progn
+			(funcall header-parser data)
+			(setf data nil))
+		      (return (cddr data))))))))
       (close https)))))
