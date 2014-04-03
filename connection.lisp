@@ -2,7 +2,7 @@
 
 (defpackage :cl-point-bot.connection
   (:use :cl :cl+ssl :usocket :cl-ppcre :json)
-  (:export :https-request))
+  (:export :api-login :api-logout :api-get :api-post))
 
 (defparameter *point-host* "point.im")
 
