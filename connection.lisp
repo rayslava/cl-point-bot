@@ -61,6 +61,8 @@ TODO: implement handling actually"
 
 (defun construct-request (line &optional headers)
   "Constructs HTTP request body except main line.
+headers - string to append to other headers. Must end with newline.
+
 Actually fills up all the secondary headers"
   (format nil "~A~%Host: ~a~%Accept: */*~%~@[Cookie: ~a~%~]~@[Authorization: ~a~%~]~@[~a~]~%"
 	  line
@@ -103,11 +105,18 @@ header-parser is function which is called when HTTP headers arrive"
       (close https)))))
 
 (defun api-get (endpoint)
-  "Send GET request to endpoint"
-  (https-request (format nil "GET /api/~a HTTP/1.1" endpoint)))
+  "Sends GET request to an API endpoint. /api/ is prepended.
+
+Example:
+ (api-get \"user/username\") will return a JSON string with user info"
+  (car (https-request (format nil "GET /api/~a HTTP/1.1" endpoint))))
 
 (defun api-post (endpoint data)
-  "Send POST request to endpoint"
+  "Sends POST request to an API endpoint. /api/ is prepended.
+data - list of data tuples in format ((param_name . param_value))
+
+Example:
+ (api-post \"login\" '((\"login\" . \"user\") (\"password\" . \"megapass\") will post line \"login=user&password=megapass\" to endpoint /api/login."
   (let ((data-line ""))
     (mapcar #'(lambda (l)
 		(let ((name (car l))
@@ -115,24 +124,26 @@ header-parser is function which is called when HTTP headers arrive"
 		  (setf data-line (concatenate 'string data-line name "=" value "&"))))
 	    data)
     (setf data-line (remove #\& data-line :from-end t :count 1))
-    (https-request (format nil "POST /api/~a HTTP/1.1" endpoint)
+    (car (https-request (format nil "POST /api/~a HTTP/1.1" endpoint)
 		   :data data-line
-		   :headers (format nil "Content-Length: ~d~%" (length data-line)))))
+		   :headers (format nil "Content-Length: ~d~%" (length data-line))))))
 
 (defun api-login (login password)
   "Logs in into API and sets up *cookie* *auth-token* and *csrf-token*"
-  (let* ((response
-	 (decode-json-from-string (car (api-post "login" (list (cons "login" login) (cons "password" password))))))
-	 (token (cdr (find-if #'(lambda (item) (equal (car item) ':TOKEN)) response)))
-	 (csrf-token (cdr (find-if #'(lambda (item) (equal (car item) ':CSRF--TOKEN)) response))))
-    (cons (setf *auth-token* token)
-	  (setf *auth-csrf-token* csrf-token))))
+  (with-decoder-simple-clos-semantics
+    (let* ((*json-symbols-package* nil)
+	   (response (decode-json-from-string (api-post "login" (list (cons "login" login) (cons "password" password))))))
+      (with-slots (token csrf--token) response
+	(cons (setf *auth-token* (values token))
+	      (setf *auth-csrf-token* (values csrf--token)))))))
 
 (defun api-logout ()
   "Cleans out logged in account"
-  (let ((response
-	 (decode-json-from-string (car (api-post "logout" (list (cons "csrf_token" *auth-csrf-token*)))))))
-    (setf *auth-token* nil)
-    (setf *auth-csrf-token* nil)
-    (setf *cookie* nil)
-    response))
+  (with-decoder-simple-clos-semantics
+    (let* ((*json-symbols-package* nil)
+	   (x (decode-json-from-string (api-post "logout" (list (cons "csrf_token" *auth-csrf-token*))))))
+      (with-slots (ok) x
+	(setf *auth-token* nil)
+	(setf *auth-csrf-token* nil)
+	(setf *cookie* nil)
+	(values ok)))))
