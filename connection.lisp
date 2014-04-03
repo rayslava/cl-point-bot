@@ -104,7 +104,7 @@ header-parser is function which is called when HTTP headers arrive"
 			  (funcall header-parser data))
 			(setf data nil))
 		      (return (cddr data))))))))
-      (close https)))))
+      (close https))))
 
 (defun api-get (endpoint)
   "Sends GET request to an API endpoint. /api/ is prepended.

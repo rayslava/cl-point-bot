@@ -1,6 +1,6 @@
 (defpackage :cl-point-bot.api
   (:use :cl :json :cl-point-bot.connection)
-  (:export :create-user))
+  (:export :user :create-user))
 
 (in-package :cl-point-bot.api)
 

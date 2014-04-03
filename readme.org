@@ -1,0 +1,23 @@
+* Point.im api bot
+  I'm going to create a simple bot able to repost some messages from http://point.im blog to another services
+
+* Usage
+  Now you can try accessing point api through functions in .connection module
+  #+BEGIN_SRC bash
+  $ sbcl --load cl-point-bot.asd
+  #+END_SRC
+  #+BEGIN_SRC lisp
+  (ql:quickload "cl-point-bot")
+  (in-package :cl-point-bot)
+  (defvar user (create-user (api-get "user/rayslava")))
+  (slot-value user 'cl-point-bot.api::id)
+  (slot-value name 'cl-point-bot.api::id)
+  #+END_SRC
+  There are api-login and api-logout functions which are handling cookies and tokens automatically
+
+* Plan
+  - [X] https interaction
+  - [X] Login/Logout
+  - [X] api request functions
+  - [ ] CLOS classes for objects
+  - [ ] websocket activities
