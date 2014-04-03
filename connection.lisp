@@ -4,6 +4,8 @@
   (:use :cl :cl+ssl :usocket :cl-ppcre :json)
   (:export :api-login :api-logout :api-get :api-post))
 
+(in-package :cl-point-bot.connection)
+
 (defparameter *point-host* "point.im")
 
 (defparameter *websocket-url* "https://point.im/ws")
