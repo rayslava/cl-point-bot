@@ -2,7 +2,7 @@
 
 (defpackage :cl-point-bot.connection
   (:use :cl :cl+ssl :usocket :cl-ppcre :json)
-  (:export :api-login :api-logout :api-get :api-post))
+  (:export :api-login :api-logout :api-get :api-post :https-request :open-https-socket))
 
 (in-package :cl-point-bot.connection)
 
@@ -18,20 +18,27 @@
 
 (defvar *cookie* nil "Current cookie which should be passed to server")
 
+(defparameter *request-success* '(200 101) "HTTP success codes")
+
 (define-condition http-error (error)
   ((code :initarg :code :reader code))
   (:documentation "HTTP protocol error happened."))
-
-
-(define-condition auth-error (error)
-  ()
-  (:documentation "NonAuthorized message received from API"))
 
 (defun handle-http-error (err)
   "HTTP Protocol error handling
 
 TODO: implement handling actually"
   (error (format nil "HTTP error ~d~%" (code err))))
+
+(define-condition auth-error (error)
+  ((message :initarg :message :reader message))
+  (:documentation "NonAuthorized message received from API"))
+
+(defun handle-auth-error (err)
+  "Couldn't authorize
+
+TODO: implement handling actually"
+  (error (format nil "Authorization error ~a~%" (message err))))
 
 (defun read-line-crlf (stream &optional eof-error-p)
   (let ((s (make-string-output-stream)))
@@ -53,7 +60,7 @@ TODO: implement handling actually"
 		    (cookie-scanner (create-scanner "^Set-Cookie:\\s(.*)$")))
 		    (register-groups-bind (http-code)
 			(http-scanner line)
-		      (if (not (= (parse-integer http-code) 200))
+		      (if (not (member (parse-integer http-code) *request-success*))
 			  (signal 'http-error :code (parse-integer http-code))))
 		    (register-groups-bind (cookie)
 			(cookie-scanner line)
@@ -73,9 +80,8 @@ Actually fills up all the secondary headers"
 	  *auth-token*
 	  headers))
 
-(defun https-request (request &key (header-parser 'parse-headers) (data nil) (headers nil))
-  "Send a single https request to server and return list with results
-header-parser is function which is called when HTTP headers arrive"
+(defun open-https-socket ()
+  "Opens an https socket to point host"
   (let* ((socket
 	 (usocket:socket-connect
 	  *point-host* *port*
@@ -85,11 +91,19 @@ header-parser is function which is called when HTTP headers arrive"
 	   (usocket:socket-stream socket)
 	     :unwrap-stream-p t
 	     :external-format '(:iso-8859-1 :eol-style :lf))))
+    https))
+
+(defun https-request (request &key (header-parser 'parse-headers) (data-line nil) (headers nil))
+  "Send a single https request to server and return list with results
+header-parser is function which is called when HTTP headers arrive
+data is post request data
+headers is line with additional headers"
+  (let ((https (open-https-socket)))
     (unwind-protect
 	 (progn
 	   (format https (construct-request request headers))
-	   (when data
-	     (format https data))
+	   (when data-line
+	       (format https "~a~%" data-line))
 	   (force-output https)
 	   (let ((data '()))
 	     (loop :for line = (read-line-crlf https nil)
@@ -97,14 +111,15 @@ header-parser is function which is called when HTTP headers arrive"
 		(progn
 		  (push line data)
 		  (when (string= (car data) "")
-		  (if (not (string= (cadr data) "0"))
-		      (progn
-			(handler-bind
-			    ((http-error #'handle-http-error))
-			  (funcall header-parser data))
-			(setf data nil))
-		      (return (cddr data))))))))
+		    (if (not (string= (cadr data) "0"))
+			(progn
+			  (handler-bind
+			      ((http-error #'handle-http-error))
+			    (funcall header-parser data))
+			  (setf data nil))
+			(return (cddr data))))))))
       (close https))))
+
 
 (defun api-get (endpoint)
   "Sends GET request to an API endpoint. /api/ is prepended.
@@ -127,24 +142,30 @@ Example:
 	    data)
     (setf data-line (remove #\& data-line :from-end t :count 1))
     (car (https-request (format nil "POST /api/~a HTTP/1.1" endpoint)
-		   :data data-line
-		   :headers (format nil "Content-Length: ~d~%" (length data-line))))))
+		   :data-line data-line
+		   :headers (format nil "Content-Type: application/x-www-form-urlencoded; charset=utf-8~%Content-Length: ~d~%" (length data-line))))))
 
 (defun api-login (login password)
   "Logs in into API and sets up *cookie* *auth-token* and *csrf-token*"
   (with-decoder-simple-clos-semantics
     (let* ((*json-symbols-package* nil)
-	   (response (decode-json-from-string (api-post "login" (list (cons "login" login) (cons "password" password))))))
-      (with-slots (token csrf--token) response
-	(cons (setf *auth-token* (values token))
-	      (setf *auth-csrf-token* (values csrf--token)))))))
+	   (json (api-post "login" (list (cons "login" login) (cons "password" password))))
+	   (response (decode-json-from-string json)))
+      (with-slots (token csrf--token error) response
+	(handler-bind
+	    ((auth-error #'handle-auth-error))
+	  (if (slot-boundp response 'error)
+	      (signal 'auth-error :message (values error))
+	      (cons (setf *auth-token* (values token))
+		    (setf *auth-csrf-token* (values csrf--token)))))))))
 
 (defun api-logout ()
   "Cleans out logged in account"
   (with-decoder-simple-clos-semantics
     (let* ((*json-symbols-package* nil)
-	   (x (decode-json-from-string (api-post "logout" (list (cons "csrf_token" *auth-csrf-token*))))))
-      (with-slots (ok) x
+	   (json (api-post "logout" (list (cons "csrf_token" *auth-csrf-token*))))
+	   (response (decode-json-from-string json)))
+      (with-slots (ok) response
 	(setf *auth-token* nil)
 	(setf *auth-csrf-token* nil)
 	(setf *cookie* nil)

@@ -11,7 +11,7 @@
   (in-package :cl-point-bot)
   (defvar user (create-user (api-get "user/rayslava")))
   (slot-value user 'cl-point-bot.api::id)
-  (slot-value name 'cl-point-bot.api::id)
+  (slot-value name 'cl-point-bot.api::name
   #+END_SRC
   There are api-login and api-logout functions which are handling cookies and tokens automatically
 

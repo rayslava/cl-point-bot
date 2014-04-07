@@ -14,6 +14,8 @@
   :depends-on ("cl+ssl" "usocket" "cl-json" "cl-ppcre")
   :components ((:file "main"
 		      :depends-on ("api"))
+	       (:file "websocket"
+		      :depends-on ("connection"))
 	       (:file "api"
 		      :depends-on ("connection"))
 	       (:file "connection")))
