@@ -2,7 +2,8 @@
 
 (defpackage :cl-point-bot.connection
   (:use :cl :cl+ssl :usocket :cl-ppcre :json)
-  (:export :api-login :api-logout :api-get :api-post :https-request :open-https-socket))
+  (:export :api-login :api-logout :api-get :api-post
+	   :https-request :open-https-socket :construct-request))
 
 (in-package :cl-point-bot.connection)
 
@@ -57,7 +58,7 @@ TODO: implement handling actually"
   "Get list of http headers and extract all the useful info from there"
   (mapcar #'(lambda (line)
 	      (let ((http-scanner (create-scanner "^HTTP/1.1\\s+(\\d+)\\s+.[\\w\\s\\d]+$"))
-		    (cookie-scanner (create-scanner "^Set-Cookie:\\s(.*)$")))
+		    (cookie-scanner (create-scanner "^Set-Cookie:\\s(user=.*);.*$")))
 		    (register-groups-bind (http-code)
 			(http-scanner line)
 		      (if (not (member (parse-integer http-code) *request-success*))
@@ -81,7 +82,7 @@ Actually fills up all the secondary headers"
 	  headers))
 
 (defun open-https-socket ()
-  "Opens an https socket to point host"
+  "Opens and returns an (socket https-socket) pair to point host"
   (let* ((socket
 	 (usocket:socket-connect
 	  *point-host* *port*
@@ -91,14 +92,14 @@ Actually fills up all the secondary headers"
 	   (usocket:socket-stream socket)
 	     :unwrap-stream-p t
 	     :external-format '(:iso-8859-1 :eol-style :lf))))
-    https))
+    (cons socket https)))
 
 (defun https-request (request &key (header-parser 'parse-headers) (data-line nil) (headers nil))
   "Send a single https request to server and return list with results
 header-parser is function which is called when HTTP headers arrive
 data is post request data
 headers is line with additional headers"
-  (let ((https (open-https-socket)))
+  (let ((https (cdr (open-https-socket))))
     (unwind-protect
 	 (progn
 	   (format https (construct-request request headers))
