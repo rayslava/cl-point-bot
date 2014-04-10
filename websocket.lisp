@@ -6,20 +6,16 @@
 
 (defparameter websocket-key "x3JJHMbDL1EzLkh9GBhXDw==" "A base64 encoded random value")
 
-(defvar bsd-socket t "Underneath socket")
+(defparameter use-mask nil "Using mask for websocket messages")
 
 (defvar websock-socket t "Socket used for communications")
-
-(defparameter use-mask nil "Using mask for websocket messages")
 
 (defun format-websocket-headers ()
   "Creates a string with additional headers to start websocket communication"
   (format nil "Connection: Upgrade~%Sec-WebSocket-Key: ~a~%Sec-WebSocket-Protocol: chat,superchat~%Sec-WebSocket-Version: 13~%Upgrade: WebSocket~%" websocket-key))
 
 (defun start-websocket ()
-  (let* ((socks (open-https-socket))
-	 (https (setf websock-socket (cdr socks))))
-    (setf bsd-socket (car socks))
+  (let* ((https (setf websock-socket (open-https-socket))))
     (unwind-protect
 	 (progn
 	   (format https (construct-request "GET /ws HTTP/1.1" (format-websocket-headers)))
@@ -33,8 +29,8 @@
 		  (print line)
 		  (handler-bind
 		      ((http-error #'cl-point-bot.connection::handle-http-error))
-		    (funcall #'cl-point-bot.connection::parse-headers data)))))))))
-
+		    (funcall #'cl-point-bot.connection::parse-headers data)))))))
+    (print (send-data (build-text-message (format nil "Authorization: ~a" cl-point-bot.connection::*auth-token*))))))
 
 (defun read-data-portion (&optional (count nil))
   "Reads data portion from socket and returns list with bytes
@@ -54,15 +50,13 @@ If count is nil then reads all the data from socket else reads count bytes"
   (let ((data (read-data-portion)))
     (send-data (build-ping))
     (parse-ws-packet (make-array (length data) :initial-contents data))
+    (send-data ping-packet)
     (socket-loop)))
-
-
 
 (defun close-socket ()
   (close websock-socket))
 
 (defun send-data (data)
-  (print data)
   (write-sequence data websock-socket))
 
 (defclass ws-header ()
@@ -77,7 +71,7 @@ If count is nil then reads all the data from socket else reads count bytes"
 
 (defparameter debug-packet (make-array 20 :element-type '(unsigned-byte 8)))
 (defparameter ping-packet (make-array 2 :element-type '(unsigned-byte 8)
-				      :initial-contents '(#x8a 0)))
+				      :initial-contents '(#x89 0)))
 (defparameter text-ping-packet (make-array 6 :element-type '(unsigned-byte 8)
 				      :initial-contents '(#x81 #x04 #x70 #x69 #x6e #x67)))
 
@@ -85,16 +79,19 @@ If count is nil then reads all the data from socket else reads count bytes"
   "This is called by packet parser when text message received"
   (cl-json::with-decoder-simple-clos-semantics
     (let* ((line (map 'string #'code-char data))
-	   (*json-symbols-package* :cl-point-bot.websocket)
-	   (message (if (string= line "ping")
-		  "{\"a\": \"text ping\"}"
-		  (cl-json::decode-json-from-string line))))
+	   (cl-json:*json-symbols-package* 'cl-point-bot.websocket)
+	   (message (cl-json::decode-json-from-string
+		     (if (string= line "ping")
+			 "{\"a\": \"text ping\"}"
+			 line))))
       (print line)
-      (with-slots (a cut author tags text post_id) message
-	(print (values a cut author tags text post_id))))))
-
-
-
+      (if (slot-boundp message 'login)
+	  (print (format nil "Logged in as ~a" (slot-value message 'login)))
+	  (with-slots (a login) message ; cut author tags text post_id) message
+	    (when (or (string= a "comment")
+		      (string= a "post"))
+		(print (slot-value message 'text)))
+	    (print (values a)))))))
 
 (defun parse-ws-packet (data)
   "Parses a vector with packet data and returns an ws-header"
@@ -183,13 +180,14 @@ If count is nil then reads all the data from socket else reads count bytes"
       ; close
       (8 (close-socket))
       ; ping
-      (9 (progn
-	   (when (not (= (mask header) 0))
-	     (loop :for i :from 0 :to (N header) :do
-		(setf (aref data (+ i (header-size header)))
-		      (logior (aref data (+ i (header-size header)))
-			      (aref (masking-key header) (logand i 3))))))
-	   (send-data (subseq data (header-size header) (+ (header-size header) (N header))))))
+      (9 (send-data (build-pong)))
+;       (progn
+;	   (when (not (= (mask header) 0))
+;	     (loop :for i :from 0 :to (N header) :do
+;		(setf (aref data (+ i (header-size header)))
+;		      (logior (aref data (+ i (header-size header)))
+;			      (aref (masking-key header) (logand i 3))))))
+;	   (send-data (subseq data (header-size header) (+ (header-size header) (N header))))))
       ; pong
       (10 (print "pong")))))
 
@@ -253,3 +251,11 @@ If count is nil then reads all the data from socket else reads count bytes"
 (defun build-text-message (text)
   "Build an array to write from string text"
   (generate-message 1 (loop for c in (coerce text 'list) collecting (char-code c))))
+
+(defun start-ws ()
+  (close-socket)
+;  (api-logout)
+  (api-login "rayslava" "password")
+  (api-login "rayslava" "password")
+  (start-websocket)
+  (socket-loop))

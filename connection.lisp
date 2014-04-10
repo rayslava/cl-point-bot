@@ -92,14 +92,14 @@ Actually fills up all the secondary headers"
 	   (usocket:socket-stream socket)
 	     :unwrap-stream-p t
 	     :external-format '(:iso-8859-1 :eol-style :lf))))
-    (cons socket https)))
+    https))
 
 (defun https-request (request &key (header-parser 'parse-headers) (data-line nil) (headers nil))
   "Send a single https request to server and return list with results
 header-parser is function which is called when HTTP headers arrive
 data is post request data
 headers is line with additional headers"
-  (let ((https (cdr (open-https-socket))))
+  (let ((https (open-https-socket)))
     (unwind-protect
 	 (progn
 	   (format https (construct-request request headers))
@@ -120,7 +120,6 @@ headers is line with additional headers"
 			  (setf data nil))
 			(return (cddr data))))))))
       (close https))))
-
 
 (defun api-get (endpoint)
   "Sends GET request to an API endpoint. /api/ is prepended.
@@ -149,7 +148,7 @@ Example:
 (defun api-login (login password)
   "Logs in into API and sets up *cookie* *auth-token* and *csrf-token*"
   (with-decoder-simple-clos-semantics
-    (let* ((*json-symbols-package* nil)
+    (let* ((*json-symbols-package* 'cl-point-bot.connection)
 	   (json (api-post "login" (list (cons "login" login) (cons "password" password))))
 	   (response (decode-json-from-string json)))
       (with-slots (token csrf--token error) response
@@ -163,7 +162,7 @@ Example:
 (defun api-logout ()
   "Cleans out logged in account"
   (with-decoder-simple-clos-semantics
-    (let* ((*json-symbols-package* nil)
+    (let* ((*json-symbols-package* 'cl-point-bot.connection)
 	   (json (api-post "logout" (list (cons "csrf_token" *auth-csrf-token*))))
 	   (response (decode-json-from-string json)))
       (with-slots (ok) response

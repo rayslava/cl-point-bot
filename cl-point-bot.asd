@@ -13,7 +13,7 @@
   :long-description "Bot is able to handle messages from point.im and repost them accordingly to rules"
   :depends-on ("cl+ssl" "usocket" "cl-json" "cl-ppcre")
   :components ((:file "main"
-		      :depends-on ("api"))
+		      :depends-on ("api" "connection" "websocket"))
 	       (:file "websocket"
 		      :depends-on ("connection"))
 	       (:file "api"
