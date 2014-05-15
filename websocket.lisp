@@ -1,3 +1,12 @@
+;; Usage example
+;; (defun start-ws ()
+;;  (close-socket)
+;;  (api-logout)
+;;  (api-login "login" "password")
+;;  (api-login "login" "password")
+;;  (start-websocket)
+;;  (socket-loop))
+
 (defpackage :cl-point-bot.websocket
   (:use :cl :cl-point-bot.connection :sb-bsd-sockets :cl-json)
   (:export))
@@ -251,11 +260,3 @@ If count is nil then reads all the data from socket else reads count bytes"
 (defun build-text-message (text)
   "Build an array to write from string text"
   (generate-message 1 (loop for c in (coerce text 'list) collecting (char-code c))))
-
-(defun start-ws ()
-  (close-socket)
-;  (api-logout)
-  (api-login "rayslava" "password")
-  (api-login "rayslava" "password")
-  (start-websocket)
-  (socket-loop))

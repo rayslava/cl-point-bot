@@ -128,7 +128,7 @@ Example:
  (api-get \"user/username\") will return a JSON string with user info"
   (car (https-request (format nil "GET /api/~a HTTP/1.1" endpoint))))
 
-(defun api-post (endpoint data)
+(defun api-post (endpoint data &optional (csrf nil))
   "Sends POST request to an API endpoint. /api/ is prepended.
 data - list of data tuples in format ((param_name . param_value))
 
@@ -143,7 +143,31 @@ Example:
     (setf data-line (remove #\& data-line :from-end t :count 1))
     (car (https-request (format nil "POST /api/~a HTTP/1.1" endpoint)
 		   :data-line data-line
-		   :headers (format nil "Content-Type: application/x-www-form-urlencoded; charset=utf-8~%Content-Length: ~d~%" (length data-line))))))
+		   :headers (format nil "Content-Type: application/x-www-form-urlencoded; charset=utf-8~%Content-Length: ~d~@[~%X-CSRF: ~a~]~%" (length data-line) (when csrf *auth-csrf-token*))))))
+
+(defun api-put (endpoint data)
+  "Sends PUT request to API endpoint. /api/ is prepended.
+data - list of data tuples in format ((param_name . param_value))
+csrf token is set for every put request
+
+Example:
+ (api-put \"post/postid\" '((\"text\" . \"updated post\") (\"tag\" . \"new,tag,line\") will post line \"text=\"updated post\"&tag=new,tag,line\" to endpoint /api/post/postid."
+  (let ((data-line ""))
+    (mapcar #'(lambda (l)
+		(let ((name (car l))
+		      (value (cdr l)))
+		  (setf data-line (concatenate 'string data-line name "=" value "&"))))
+	    data)
+    (setf data-line (remove #\& data-line :from-end t :count 1))
+    (car (https-request (format nil "PUT /api/~a HTTP/1.1" endpoint)
+		   :data-line data-line
+		   :headers (format nil "Content-Type: application/x-www-form-urlencoded; charset=utf-8~%Content-Length: ~d~%X-CSRF: ~a~%" (length data-line) *auth-csrf-token*)))))
+
+(defun api-delete (endpoint)
+  "Sends DELETE request to API endpoint. /api/ is prepended.
+csrf token is set for every delete request"
+  (car (https-request (format nil "DELETE /api/~a HTTP/1.1" endpoint)
+		      :headers (format nil "X-CSRF: ~a~%" *auth-csrf-token*))))
 
 (defun api-login (login password)
   "Logs in into API and sets up *cookie* *auth-token* and *csrf-token*"
