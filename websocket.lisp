@@ -113,7 +113,7 @@ If count is nil then reads all the data from socket else reads count bytes"
 			 (coerce tags 'list))))
 	(setf result (concatenate 'string
 				  result "*"
-				  (car taglist) " "
+				  (car taglist) (when (cdr taglist) " ")
 				  (print-tags (cdr taglist)))))))
 
 (defun parse-post (message)
