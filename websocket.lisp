@@ -56,10 +56,11 @@ If count is nil then reads all the data from socket else reads count bytes"
     (reverse data)))
 
 (defun socket-loop ()
+  "Main loop for websocket message handling"
   (let ((data (read-data-portion)))
     (send-data (build-ping))
     (parse-ws-packet (make-array (length data) :initial-contents data))
-    (send-data ping-packet)
+    (send-data (build-ping))
     (socket-loop)))
 
 (defun close-socket ()
@@ -78,11 +79,8 @@ If count is nil then reads all the data from socket else reads count bytes"
    (masking-key :accessor masking-key))
   (:documentation "Header of websocket packet"))
 
-(defparameter debug-packet (make-array 20 :element-type '(unsigned-byte 8)))
 (defparameter ping-packet (make-array 2 :element-type '(unsigned-byte 8)
 				      :initial-contents '(#x89 0)))
-(defparameter text-ping-packet (make-array 6 :element-type '(unsigned-byte 8)
-				      :initial-contents '(#x81 #x04 #x70 #x69 #x6e #x67)))
 
 (defun text-message-callback (data)
   "This is called by packet parser when text message received"
@@ -96,11 +94,28 @@ If count is nil then reads all the data from socket else reads count bytes"
       (print line)
       (if (slot-boundp message 'login)
 	  (print (format nil "Logged in as ~a" (slot-value message 'login)))
-	  (with-slots (a login) message ; cut author tags text post_id) message
-	    (when (or (string= a "comment")
-		      (string= a "post"))
-		(print (slot-value message 'text)))
-	    (print (values a)))))))
+	  (with-slots (a login author) message ; cut author tags text post_id) message
+	    (when (string= a "ok")
+	      (parse-recommendation message))
+	    (when (string= a "post")
+	      (parse-post message))
+	    (when (string= a "comment")
+	      (parse-comment message)))))))
+
+(defun parse-post (message)
+  "Parses a post object from websocket"
+  (with-slots (cut author tags text post--id) message
+    (print (format t "~%#~a (~a) @~a: ~a" post--id tags author text))))
+
+(defun parse-comment (message)
+  "Parses a comment object from websocket"
+  (with-slots (post--id comment--id author text) message
+    (print (format t "~%#~a/~a @~a: ~a" post--id comment--id author text))))
+
+(defun parse-recommendation (message)
+  "Parses a recommendation object from websocket"
+  (with-slots (post--id author text) message
+      (print (format t "~%~a recommended #~a~[:~a~]" author post--id text))))
 
 (defun parse-ws-packet (data)
   "Parses a vector with packet data and returns an ws-header"
@@ -190,13 +205,6 @@ If count is nil then reads all the data from socket else reads count bytes"
       (8 (close-socket))
       ; ping
       (9 (send-data (build-pong)))
-;       (progn
-;	   (when (not (= (mask header) 0))
-;	     (loop :for i :from 0 :to (N header) :do
-;		(setf (aref data (+ i (header-size header)))
-;		      (logior (aref data (+ i (header-size header)))
-;			      (aref (masking-key header) (logand i 3))))))
-;	   (send-data (subseq data (header-size header) (+ (header-size header) (N header))))))
       ; pong
       (10 (print "pong")))))
 
