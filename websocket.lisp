@@ -99,13 +99,27 @@ If count is nil then reads all the data from socket else reads count bytes"
 	      (parse-recommendation message))
 	    (when (string= a "post")
 	      (parse-post message))
+	    (when (string= a "rec")
+	      (parse-recommended message))
 	    (when (string= a "comment")
 	      (parse-comment message)))))))
+
+(defun print-tags (tags)
+  "Converts vector tags to string with tagline for printing"
+  (when tags
+      (let ((result "")
+	    (taglist (if (typep tags 'list)
+			 tags
+			 (coerce tags 'list))))
+	(setf result (concatenate 'string
+				  result "*"
+				  (car taglist) " "
+				  (print-tags (cdr taglist)))))))
 
 (defun parse-post (message)
   "Parses a post object from websocket"
   (with-slots (cut author tags text post--id) message
-    (print (format t "~%#~a (~a) @~a: ~a" post--id tags author text))))
+    (print (format t "~%#~a (~a) @~a: ~a" post--id (print-tags tags) author text))))
 
 (defun parse-comment (message)
   "Parses a comment object from websocket"
@@ -115,7 +129,12 @@ If count is nil then reads all the data from socket else reads count bytes"
 (defun parse-recommendation (message)
   "Parses a recommendation object from websocket"
   (with-slots (post--id author text) message
-      (print (format t "~%~a recommended #~a~[:~a~]" author post--id text))))
+      (print (format t "~%@~a recommended #~a~[:~a~]" author post--id text))))
+
+(defun parse-recommended (message)
+  "Parses a recommended message object from websocket"
+  (with-slots (post--id author post--author text tags post--text) message
+      (print (format t "~%@~a recommended #~a (by @~a)~[:~a~]: ~a~%~a" author post--id post--author text (print-tags tags) post--text))))
 
 (defun parse-ws-packet (data)
   "Parses a vector with packet data and returns an ws-header"
