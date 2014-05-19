@@ -19,6 +19,6 @@
   - [X] https interaction
   - [X] Login/Logout
   - [X] api request functions
-  - [ ] implement utf8 for posts and comments
+  - [ ] implement utf8 for posts and comments posting
   - [ ] CLOS classes for objects
-  - [ ] websocket activities
+  - [X] websocket activities
