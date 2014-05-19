@@ -92,7 +92,7 @@ Returns id of new comment"
 	    (*json-symbols-package* :cl-point-bot.api)
 	    (x (decode-json-from-string line)))
       (with-slots (id) x
-	id)))))
+	id))))
 
 (defun post-unrecommend (id)
   (with-decoder-simple-clos-semantics
@@ -109,7 +109,7 @@ Returns id of new comment"
 	    (*json-symbols-package* :cl-point-bot.api)
 	    (x (decode-json-from-string line)))
       (with-slots (id) x
-	id)))))
+	id))))
 
 (defun post-unsubscribe (id)
   (with-decoder-simple-clos-semantics
@@ -128,7 +128,7 @@ Returns id of new comment"
 	    (*json-symbols-package* :cl-point-bot.api)
 	    (x (decode-json-from-string line)))
       (with-slots (id) x
-	id)))))
+	id))))
 
 (defun post-unbookmark (id)
   (with-decoder-simple-clos-semantics
