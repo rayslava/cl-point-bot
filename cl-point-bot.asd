@@ -11,7 +11,7 @@
   :licence "MIT"
   :description "point.im client bot"
   :long-description "Bot is able to handle messages from point.im and repost them accordingly to rules"
-  :depends-on ("cl+ssl" "usocket" "cl-json" "cl-ppcre" "fiveam")
+  :depends-on ("cl+ssl" "usocket" "cl-json" "cl-ppcre" "fiveam" "cl-mock")
   :components ((:file "main"
 		      :depends-on ("api" "connection" "websocket"))
 	       (:file "websocket"
