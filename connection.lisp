@@ -13,6 +13,8 @@
 
 (defparameter *port* 443)
 
+(defparameter *socket-charset* :iso-8859-1)
+
 (defvar *auth-token* nil "A token returned after login to API")
 
 (defvar *auth-csrf-token* nil "A csrf token needed for logout")
@@ -91,7 +93,7 @@ Actually fills up all the secondary headers"
 	  (cl+ssl:make-ssl-client-stream
 	   (usocket:socket-stream socket)
 	     :unwrap-stream-p t
-	     :external-format '(:iso-8859-1 :eol-style :lf))))
+	     :external-format '(:latin-1 :eol-style :lf))))   ; Can be opened with utf-8
     https))
 
 (defun https-request (request &key (header-parser 'parse-headers) (data-line nil) (headers nil))
