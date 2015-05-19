@@ -21,6 +21,34 @@
    (email :accessor email)
    (location :accessor location)))
 
+(defmethod print-object ((obj user) out)
+  (print-unreadable-object (obj out :type t)
+    (format out "~s" (slot-value obj 'login))))
+
+(defclass entry ()
+  ((author :accessor author)
+   (text :accessor text)
+   (id :accessor id)
+   (created :accessor created)))
+
+(defclass post (entry)
+  ((tags :accessor tags)
+   (comments--count :accessor comments--count)
+   (comments :accessor comments)))
+
+(defmethod print-object ((obj post) out)
+  (print-unreadable-object (obj out :type t)
+    (format out "#~s ~s:~%~s" (id obj) (login (author obj)) (text obj))))
+(defclass comment (entry)
+  ((to--comment--id :accessor to--comment--id)))
+
+(defmethod print-object ((obj comment) out)
+  (print-unreadable-object (obj out :type t)
+    (format out "/~s ~s: ~s"
+	    (id obj)
+	    (login (author obj))
+	    (text obj))))
+
 (defun create-user (line)
   (with-decoder-simple-clos-semantics
     (let* ((*json-symbols-package* :cl-point-bot.api)
@@ -30,6 +58,28 @@
 	(setf (id result) id)
 	(setf (name result) name))
       result)))
+
+(defun post-get (id)
+  "Requst post #ID with comments
+
+Returns (POST (COMMENT COMMMENT COMMENT))"
+  (with-decoder-simple-clos-semantics
+    (let*  ((line (api-get (concatenate 'string "post/" id)))
+	    (*json-symbols-package* :cl-point-bot.api)
+	    (x (decode-json-from-string line)))
+      (with-slots (post comments) x
+	(list
+	 (with-slots (tags author text created id comments--count) post
+	   (let* ((p (change-class post 'post))
+		  (a (change-class (author p) 'user)))
+	     (setf (author p) a)
+	     p))
+	 (mapcar #'(lambda (comment)
+		     (let* ((c (change-class comment 'comment))
+			    (a (change-class (author c) 'user)))
+		       (setf (author c) a)
+		       c))
+		 (coerce comments 'list))))))
 
 (defun post-new (text &optional (tags nil) (private nil))
   "Send new post with text and tags

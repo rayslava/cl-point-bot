@@ -2,7 +2,7 @@
 
 (defpackage :cl-point-bot.connection
   (:use :cl :cl+ssl :usocket :cl-ppcre :json)
-  (:export :api-login :api-logout :api-get :api-post
+  (:export :api-login :api-logout :api-get :api-post :api-delete
 	   :https-request :open-https-socket :construct-request))
 
 (in-package :cl-point-bot.connection)
