@@ -6,7 +6,7 @@ env:
     - LISP=ecl
 
 install:
-  - curl https://raw2.github.com/luismbo/cl-travis/master/install.sh | bash
+  - curl -L https://github.com/luismbo/cl-travis/raw/master/install.sh | bash
 
 script:
-  - cl-launch -i "(ql:quickload :cl-point-bot) (cl-point-bot.tests::run! 'cl-point-bot.tests::cl-point-bot-suite)"
+  - cl -e "(ql:quickload :cl-point-bot) (cl-point-bot.tests::run! 'cl-point-bot.tests::cl-point-bot-suite)"
